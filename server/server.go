@@ -25,8 +25,9 @@ func NewServer(cfg *Config, manager oauth2.Manager) *Server {
 		Manager: manager,
 	}
 
-	// default handler
+	// default handlers
 	srv.ClientInfoHandler = ClientBasicHandler
+	srv.PasswordInfoHandler = PasswordFormHandler
 
 	srv.UserAuthorizationHandler = func(w http.ResponseWriter, r *http.Request) (string, error) {
 		return "", errors.ErrAccessDenied
@@ -46,6 +47,7 @@ type Server struct {
 	ClientAuthorizedHandler      ClientAuthorizedHandler
 	ClientScopeHandler           ClientScopeHandler
 	UserAuthorizationHandler     UserAuthorizationHandler
+	PasswordInfoHandler          PasswordInfoHandler
 	PasswordAuthorizationHandler PasswordAuthorizationHandler
 	RefreshingScopeHandler       RefreshingScopeHandler
 	ResponseErrorHandler         ResponseErrorHandler
@@ -300,9 +302,9 @@ func (s *Server) ValidationTokenRequest(r *http.Request) (oauth2.GrantType, *oau
 		}
 	case oauth2.PasswordCredentials:
 		tgr.Scope = r.FormValue("scope")
-		username, password := r.FormValue("username"), r.FormValue("password")
-		if username == "" || password == "" {
-			return "", nil, errors.ErrInvalidRequest
+		username, password, err := s.PasswordInfoHandler(r)
+		if err != nil {
+			return "", nil, err
 		}
 
 		userID, err := s.PasswordAuthorizationHandler(username, password)

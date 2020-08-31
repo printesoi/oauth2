@@ -21,6 +21,9 @@ type (
 	// UserAuthorizationHandler get user id from request authorization
 	UserAuthorizationHandler func(w http.ResponseWriter, r *http.Request) (userID string, err error)
 
+	// PasswordInfoHandler get password info from request
+	PasswordInfoHandler func(r *http.Request) (username, password string, err error)
+
 	// PasswordAuthorizationHandler get user id from username and password
 	PasswordAuthorizationHandler func(username, password string) (userID string, err error)
 
@@ -58,6 +61,15 @@ func ClientBasicHandler(r *http.Request) (string, string, error) {
 	username, password, ok := r.BasicAuth()
 	if !ok {
 		return "", "", errors.ErrInvalidClient
+	}
+	return username, password, nil
+}
+
+// PasswordFormHandler get username and password from form
+func PasswordFormHandler(r *http.Request) (string, string, error) {
+	username, password := r.FormValue("username"), r.FormValue("password")
+	if username == "" || password == "" {
+		return "", "", errors.ErrInvalidRequest
 	}
 	return username, password, nil
 }
