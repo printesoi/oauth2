@@ -44,6 +44,11 @@ func (s *Server) SetUserAuthorizationHandler(handler UserAuthorizationHandler) {
 	s.UserAuthorizationHandler = handler
 }
 
+// SetPasswordInfoHandler get password info from request
+func (s *Server) SetPasswordInfoHandler(handler PasswordInfoHandler) {
+	s.PasswordInfoHandler = handler
+}
+
 // SetPasswordAuthorizationHandler get user id from username and password
 func (s *Server) SetPasswordAuthorizationHandler(handler PasswordAuthorizationHandler) {
 	s.PasswordAuthorizationHandler = handler
