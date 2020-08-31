@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-oauth2/oauth2/v4"
+	"github.com/printesoi/oauth2/v4"
 	"github.com/google/uuid"
 )
 
