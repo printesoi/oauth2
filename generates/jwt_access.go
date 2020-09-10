@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/printesoi/oauth2/v4"
 	"github.com/printesoi/oauth2/v4/errors"
-	"github.com/google/uuid"
 )
 
 // JWTAccessClaims jwt claims
 type JWTAccessClaims struct {
 	jwt.StandardClaims
+	Rand string `json:"rnd,omitempty"`
 }
 
 // Valid claims verification
@@ -23,6 +24,17 @@ func (a *JWTAccessClaims) Valid() error {
 		return errors.ErrInvalidAccessToken
 	}
 	return nil
+}
+
+// Randomizer generate rnd claim so that we generate pseudo-unique tokens
+type Randomizer interface {
+	GenerateRandomString() string
+}
+
+type RandomizerFunc func() string
+
+func (r RandomizerFunc) GenerateRandomString() string {
+	return r()
 }
 
 // NewJWTAccessGenerate create to generate the jwt access token instance
@@ -39,6 +51,7 @@ type JWTAccessGenerate struct {
 	SignedKeyID  string
 	SignedKey    []byte
 	SignedMethod jwt.SigningMethod
+	Randomizer   Randomizer
 }
 
 // Token based on the UUID generated token
@@ -49,6 +62,9 @@ func (a *JWTAccessGenerate) Token(ctx context.Context, data *oauth2.GenerateBasi
 			Subject:   data.UserID,
 			ExpiresAt: data.TokenInfo.GetAccessCreateAt().Add(data.TokenInfo.GetAccessExpiresIn()).Unix(),
 		},
+	}
+	if a.Randomizer != nil {
+		claims.Rand = a.Randomizer.GenerateRandomString()
 	}
 
 	token := jwt.NewWithClaims(a.SignedMethod, claims)
