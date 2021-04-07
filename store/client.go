@@ -2,10 +2,10 @@ package store
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/printesoi/oauth2/v4"
+	"github.com/printesoi/oauth2/v4/errors"
 )
 
 // NewClientStore create client store
@@ -29,7 +29,7 @@ func (cs *ClientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInf
 	if c, ok := cs.data[id]; ok {
 		return c, nil
 	}
-	return nil, errors.New("not found")
+	return nil, errors.ErrInvalidClient
 }
 
 // Set set client information
