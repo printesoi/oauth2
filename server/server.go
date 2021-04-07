@@ -256,20 +256,20 @@ func (s *Server) GetAuthorizeData(req *AuthorizeRequest, ti oauth2.TokenInfo) ma
 }
 
 // HandleAuthorizeRequest the authorization request handling
-func (s *Server) HandleAuthorizeRequest(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleAuthorizeRequest(w http.ResponseWriter, r *http.Request) (oauth2.TokenInfo, error) {
 	ctx := r.Context()
 
 	req, err := s.ValidationAuthorizeRequest(r)
 	if err != nil {
-		return s.redirectError(w, req, err)
+		return nil, s.redirectError(w, req, err)
 	}
 
 	// user authorization
 	userID, err := s.UserAuthorizationHandler(w, r)
 	if err != nil {
-		return s.redirectError(w, req, err)
+		return nil, s.redirectError(w, req, err)
 	} else if userID == "" {
-		return nil
+		return nil, nil
 	}
 	req.UserID = userID
 
@@ -277,7 +277,7 @@ func (s *Server) HandleAuthorizeRequest(w http.ResponseWriter, r *http.Request) 
 	if fn := s.AuthorizeScopeHandler; fn != nil {
 		scope, err := fn(w, r)
 		if err != nil {
-			return err
+			return nil, err
 		} else if scope != "" {
 			req.Scope = scope
 		}
@@ -287,26 +287,26 @@ func (s *Server) HandleAuthorizeRequest(w http.ResponseWriter, r *http.Request) 
 	if fn := s.AccessTokenExpHandler; fn != nil {
 		exp, err := fn(w, r)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		req.AccessTokenExp = exp
 	}
 
 	ti, err := s.GetAuthorizeToken(ctx, req)
 	if err != nil {
-		return s.redirectError(w, req, err)
+		return nil, s.redirectError(w, req, err)
 	}
 
 	// If the redirect URI is empty, the default domain provided by the client is used.
 	if req.RedirectURI == "" {
 		client, err := s.Manager.GetClient(ctx, req.ClientID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		req.RedirectURI = client.GetDomain()
 	}
 
-	return s.redirect(w, req, s.GetAuthorizeData(req, ti))
+	return ti, s.redirect(w, req, s.GetAuthorizeData(req, ti))
 }
 
 // ValidationTokenRequest the token request validation
@@ -497,20 +497,20 @@ func (s *Server) GetTokenData(ti oauth2.TokenInfo, r *http.Request) map[string]i
 }
 
 // HandleTokenRequest token request handling
-func (s *Server) HandleTokenRequest(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleTokenRequest(w http.ResponseWriter, r *http.Request) (oauth2.TokenInfo, error) {
 	ctx := r.Context()
 
 	gt, tgr, err := s.ValidationTokenRequest(r)
 	if err != nil {
-		return s.tokenError(w, r, err)
+		return nil, s.tokenError(w, r, err)
 	}
 
 	ti, err := s.GetAccessToken(ctx, gt, tgr)
 	if err != nil {
-		return s.tokenError(w, r, err)
+		return nil, s.tokenError(w, r, err)
 	}
 
-	return s.token(w, s.GetTokenData(ti, r), nil)
+	return nil, s.token(w, s.GetTokenData(ti, r), nil)
 }
 
 // GetErrorData get error response data
