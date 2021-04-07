@@ -49,6 +49,7 @@ type Server struct {
 	UserAuthorizationHandler     UserAuthorizationHandler
 	PasswordInfoHandler          PasswordInfoHandler
 	PasswordAuthorizationHandler PasswordAuthorizationHandler
+	RefreshingValidationHandler  RefreshingValidationHandler
 	RefreshingScopeHandler       RefreshingScopeHandler
 	ResponseErrorHandler         ResponseErrorHandler
 	InternalErrorHandler         InternalErrorHandler
@@ -140,6 +141,16 @@ func (s *Server) CheckResponseType(rt oauth2.ResponseType) bool {
 	return false
 }
 
+// CheckCodeChallengeMethod checks for allowed code challenge method
+func (s *Server) CheckCodeChallengeMethod(ccm oauth2.CodeChallengeMethod) bool {
+	for _, c := range s.Config.AllowedCodeChallengeMethods {
+		if c == ccm {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidationAuthorizeRequest the authorization request validation
 func (s *Server) ValidationAuthorizeRequest(r *http.Request) (*AuthorizeRequest, error) {
 	redirectURI := r.FormValue("redirect_uri")
@@ -156,13 +167,32 @@ func (s *Server) ValidationAuthorizeRequest(r *http.Request) (*AuthorizeRequest,
 		return nil, errors.ErrUnauthorizedClient
 	}
 
+	cc := r.FormValue("code_challenge")
+	if cc == "" && s.Config.ForcePKCE {
+		return nil, errors.ErrCodeChallengeRquired
+	}
+	if cc != "" && (len(cc) < 43 || len(cc) > 128) {
+		return nil, errors.ErrInvalidCodeChallengeLen
+	}
+
+	ccm := oauth2.CodeChallengeMethod(r.FormValue("code_challenge_method"))
+	// set default
+	if ccm == "" {
+		ccm = oauth2.CodeChallengePlain
+	}
+	if ccm.String() != "" && !s.CheckCodeChallengeMethod(ccm) {
+		return nil, errors.ErrUnsupportedCodeChallengeMethod
+	}
+
 	req := &AuthorizeRequest{
-		RedirectURI:  redirectURI,
-		ResponseType: resType,
-		ClientID:     clientID,
-		State:        r.FormValue("state"),
-		Scope:        r.FormValue("scope"),
-		Request:      r,
+		RedirectURI:         redirectURI,
+		ResponseType:        resType,
+		ClientID:            clientID,
+		State:               r.FormValue("state"),
+		Scope:               r.FormValue("scope"),
+		Request:             r,
+		CodeChallenge:       cc,
+		CodeChallengeMethod: ccm,
 	}
 	return req, nil
 }
@@ -186,7 +216,15 @@ func (s *Server) GetAuthorizeToken(ctx context.Context, req *AuthorizeRequest) (
 
 	// check the client allows the authorized scope
 	if fn := s.ClientScopeHandler; fn != nil {
-		allowed, err := fn(req.ClientID, req.Scope)
+		tgr := &oauth2.TokenGenerateRequest{
+			ClientID:       req.ClientID,
+			UserID:         req.UserID,
+			RedirectURI:    req.RedirectURI,
+			Scope:          req.Scope,
+			AccessTokenExp: req.AccessTokenExp,
+			Request:        req.Request,
+		}
+		allowed, err := fn(tgr)
 		if err != nil {
 			return nil, err
 		} else if !allowed {
@@ -195,12 +233,14 @@ func (s *Server) GetAuthorizeToken(ctx context.Context, req *AuthorizeRequest) (
 	}
 
 	tgr := &oauth2.TokenGenerateRequest{
-		ClientID:       req.ClientID,
-		UserID:         req.UserID,
-		RedirectURI:    req.RedirectURI,
-		Scope:          req.Scope,
-		AccessTokenExp: req.AccessTokenExp,
-		Request:        req.Request,
+		ClientID:            req.ClientID,
+		UserID:              req.UserID,
+		RedirectURI:         req.RedirectURI,
+		Scope:               req.Scope,
+		AccessTokenExp:      req.AccessTokenExp,
+		Request:             req.Request,
+		CodeChallenge:       req.CodeChallenge,
+		CodeChallengeMethod: req.CodeChallengeMethod,
 	}
 	return s.Manager.GenerateAuthToken(ctx, req.ResponseType, tgr)
 }
@@ -300,6 +340,10 @@ func (s *Server) ValidationTokenRequest(r *http.Request) (oauth2.GrantType, *oau
 			tgr.Code == "" {
 			return "", nil, errors.ErrInvalidRequest
 		}
+		tgr.CodeVerifier = r.FormValue("code_verifier")
+		if s.Config.ForcePKCE && tgr.CodeVerifier == "" {
+			return "", nil, errors.ErrInvalidRequest
+		}
 	case oauth2.PasswordCredentials:
 		tgr.Scope = r.FormValue("scope")
 		username, password, err := s.PasswordInfoHandler(r)
@@ -356,7 +400,8 @@ func (s *Server) GetAccessToken(ctx context.Context, gt oauth2.GrantType, tgr *o
 		ti, err := s.Manager.GenerateAccessToken(ctx, gt, tgr)
 		if err != nil {
 			switch err {
-			case errors.ErrInvalidAuthorizeCode:
+			case errors.ErrInvalidAuthorizeCode, errors.ErrInvalidCodeChallenge,
+				errors.ErrMissingCodeChallenge, errors.ErrMissingCodeChallenge:
 				return nil, errors.ErrInvalidGrant
 			case errors.ErrInvalidClient:
 				return nil, errors.ErrInvalidClient
@@ -367,7 +412,7 @@ func (s *Server) GetAccessToken(ctx context.Context, gt oauth2.GrantType, tgr *o
 		return ti, nil
 	case oauth2.PasswordCredentials, oauth2.ClientCredentials:
 		if fn := s.ClientScopeHandler; fn != nil {
-			allowed, err := fn(tgr.ClientID, tgr.Scope)
+			allowed, err := fn(tgr)
 			if err != nil {
 				return nil, err
 			} else if !allowed {
@@ -386,7 +431,23 @@ func (s *Server) GetAccessToken(ctx context.Context, gt oauth2.GrantType, tgr *o
 				return nil, err
 			}
 
-			allowed, err := scopeFn(scope, rti.GetScope())
+			allowed, err := scopeFn(tgr, rti.GetScope())
+			if err != nil {
+				return nil, err
+			} else if !allowed {
+				return nil, errors.ErrInvalidScope
+			}
+		}
+
+		if validationFn := s.RefreshingValidationHandler; validationFn != nil {
+			rti, err := s.Manager.LoadRefreshToken(ctx, tgr.Refresh)
+			if err != nil {
+				if err == errors.ErrInvalidRefreshToken || err == errors.ErrExpiredRefreshToken {
+					return nil, errors.ErrInvalidGrant
+				}
+				return nil, err
+			}
+			allowed, err := validationFn(rti)
 			if err != nil {
 				return nil, err
 			} else if !allowed {
