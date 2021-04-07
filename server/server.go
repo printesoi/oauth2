@@ -62,7 +62,7 @@ func (s *Server) redirectError(w http.ResponseWriter, req *AuthorizeRequest, err
 	if req == nil {
 		return err
 	}
-	data, _, _ := s.GetErrorData(err)
+	data, _, _ := s.GetErrorData(req.Request, err)
 	return s.redirect(w, req, data)
 }
 
@@ -77,8 +77,8 @@ func (s *Server) redirect(w http.ResponseWriter, req *AuthorizeRequest, data map
 	return nil
 }
 
-func (s *Server) tokenError(w http.ResponseWriter, err error) error {
-	data, statusCode, header := s.GetErrorData(err)
+func (s *Server) tokenError(w http.ResponseWriter, r *http.Request, err error) error {
+	data, statusCode, header := s.GetErrorData(r, err)
 	return s.token(w, data, header, statusCode)
 }
 
@@ -502,19 +502,19 @@ func (s *Server) HandleTokenRequest(w http.ResponseWriter, r *http.Request) erro
 
 	gt, tgr, err := s.ValidationTokenRequest(r)
 	if err != nil {
-		return s.tokenError(w, err)
+		return s.tokenError(w, r, err)
 	}
 
 	ti, err := s.GetAccessToken(ctx, gt, tgr)
 	if err != nil {
-		return s.tokenError(w, err)
+		return s.tokenError(w, r, err)
 	}
 
 	return s.token(w, s.GetTokenData(ti), nil)
 }
 
 // GetErrorData get error response data
-func (s *Server) GetErrorData(err error) (map[string]interface{}, int, http.Header) {
+func (s *Server) GetErrorData(r *http.Request, err error) (map[string]interface{}, int, http.Header) {
 	var re errors.Response
 	if v, ok := errors.Descriptions[err]; ok {
 		re.Error = err
@@ -522,7 +522,7 @@ func (s *Server) GetErrorData(err error) (map[string]interface{}, int, http.Head
 		re.StatusCode = errors.StatusCodes[err]
 	} else {
 		if fn := s.InternalErrorHandler; fn != nil {
-			if v := fn(err); v != nil {
+			if v := fn(r, err); v != nil {
 				re = *v
 			}
 		}
@@ -535,7 +535,7 @@ func (s *Server) GetErrorData(err error) (map[string]interface{}, int, http.Head
 	}
 
 	if fn := s.ResponseErrorHandler; fn != nil {
-		fn(&re)
+		fn(r, &re)
 	}
 
 	data := make(map[string]interface{})

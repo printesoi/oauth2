@@ -34,10 +34,10 @@ type (
 	RefreshingValidationHandler func(ti oauth2.TokenInfo) (allowed bool, err error)
 
 	// ResponseErrorHandler response error handing
-	ResponseErrorHandler func(re *errors.Response)
+	ResponseErrorHandler func(r *http.Request, re *errors.Response)
 
 	// InternalErrorHandler internal error handing
-	InternalErrorHandler func(err error) (re *errors.Response)
+	InternalErrorHandler func(r *http.Request, err error) (re *errors.Response)
 
 	// AuthorizeScopeHandler set the authorized scope
 	AuthorizeScopeHandler func(w http.ResponseWriter, r *http.Request) (scope string, err error)
