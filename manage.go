@@ -8,15 +8,18 @@ import (
 
 // TokenGenerateRequest provide to generate the token request parameters
 type TokenGenerateRequest struct {
-	ClientID       string
-	ClientSecret   string
-	UserID         string
-	RedirectURI    string
-	Scope          string
-	Code           string
-	Refresh        string
-	AccessTokenExp time.Duration
-	Request        *http.Request
+	ClientID            string
+	ClientSecret        string
+	UserID              string
+	RedirectURI         string
+	Scope               string
+	Code                string
+	CodeChallenge       string
+	CodeChallengeMethod CodeChallengeMethod
+	Refresh             string
+	CodeVerifier        string
+	AccessTokenExp      time.Duration
+	Request             *http.Request
 }
 
 // Manager authorization management interface
@@ -28,7 +31,7 @@ type Manager interface {
 	GenerateAuthToken(ctx context.Context, rt ResponseType, tgr *TokenGenerateRequest) (authToken TokenInfo, err error)
 
 	// generate the access token
-	GenerateAccessToken(ctx context.Context, rt GrantType, tgr *TokenGenerateRequest) (accessToken TokenInfo, err error)
+	GenerateAccessToken(ctx context.Context, gt GrantType, tgr *TokenGenerateRequest) (accessToken TokenInfo, err error)
 
 	// refreshing an access token
 	RefreshAccessToken(ctx context.Context, tgr *TokenGenerateRequest) (accessToken TokenInfo, err error)

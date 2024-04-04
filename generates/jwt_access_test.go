@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/printesoi/oauth2/v4"
 	"github.com/printesoi/oauth2/v4/generates"
 	"github.com/printesoi/oauth2/v4/models"
@@ -45,7 +45,7 @@ func TestJWTAccess(t *testing.T) {
 		claims, ok := token.Claims.(*generates.JWTAccessClaims)
 		So(ok, ShouldBeTrue)
 		So(token.Valid, ShouldBeTrue)
-		So(claims.Audience, ShouldEqual, "123456")
+		So(claims.Audience, ShouldEqual, jwt.ClaimStrings{"123456"})
 		So(claims.Subject, ShouldEqual, "000000")
 		So(claims.Rand, ShouldBeEmpty)
 	})
@@ -85,7 +85,7 @@ func TestJWTAccessRand(t *testing.T) {
 		claims, ok := token.Claims.(*generates.JWTAccessClaims)
 		So(ok, ShouldBeTrue)
 		So(token.Valid, ShouldBeTrue)
-		So(claims.Audience, ShouldEqual, "123456")
+		So(claims.Audience, ShouldEqual, jwt.ClaimStrings{"123456"})
 		So(claims.Subject, ShouldBeEmpty)
 		So(claims.Rand, ShouldEqual, "12345")
 	})

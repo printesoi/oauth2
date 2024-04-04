@@ -10,6 +10,7 @@ type (
 		GetID() string
 		GetSecret() string
 		GetDomain() string
+		IsPublic() bool
 		GetUserID() string
 	}
 
@@ -37,6 +38,10 @@ type (
 		SetCodeCreateAt(time.Time)
 		GetCodeExpiresIn() time.Duration
 		SetCodeExpiresIn(time.Duration)
+		GetCodeChallenge() string
+		SetCodeChallenge(string)
+		GetCodeChallengeMethod() CodeChallengeMethod
+		SetCodeChallengeMethod(CodeChallengeMethod)
 
 		GetAccess() string
 		SetAccess(string)

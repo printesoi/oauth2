@@ -59,6 +59,11 @@ func (s *Server) SetRefreshingScopeHandler(handler RefreshingScopeHandler) {
 	s.RefreshingScopeHandler = handler
 }
 
+// SetRefreshingValidationHandler check if refresh_token is still valid. eg no revocation or other
+func (s *Server) SetRefreshingValidationHandler(handler RefreshingValidationHandler) {
+	s.RefreshingValidationHandler = handler
+}
+
 // SetResponseErrorHandler response error handling
 func (s *Server) SetResponseErrorHandler(handler ResponseErrorHandler) {
 	s.ResponseErrorHandler = handler
@@ -67,6 +72,11 @@ func (s *Server) SetResponseErrorHandler(handler ResponseErrorHandler) {
 // SetInternalErrorHandler internal error handling
 func (s *Server) SetInternalErrorHandler(handler InternalErrorHandler) {
 	s.InternalErrorHandler = handler
+}
+
+// SetPreRedirectErrorHandler sets the PreRedirectErrorHandler in current Server instance
+func (s *Server) SetPreRedirectErrorHandler(handler PreRedirectErrorHandler) {
+	s.PreRedirectErrorHandler = handler
 }
 
 // SetExtensionFieldsHandler in response to the access token with the extension of the field
@@ -82,4 +92,9 @@ func (s *Server) SetAccessTokenExpHandler(handler AccessTokenExpHandler) {
 // SetAuthorizeScopeHandler set scope for the access token
 func (s *Server) SetAuthorizeScopeHandler(handler AuthorizeScopeHandler) {
 	s.AuthorizeScopeHandler = handler
+}
+
+// SetResponseTokenHandler response token handing
+func (s *Server) SetResponseTokenHandler(handler ResponseTokenHandler) {
+	s.ResponseTokenHandler = handler
 }
