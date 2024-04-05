@@ -73,7 +73,7 @@ func (s *Server) redirectError(w http.ResponseWriter, req *AuthorizeRequest, err
 		return err
 	}
 
-	data, _, _ := s.GetErrorData(err)
+	data, _, _ := s.GetErrorData(err, req.Request)
 	return s.redirect(w, req, data)
 }
 
@@ -88,8 +88,8 @@ func (s *Server) redirect(w http.ResponseWriter, req *AuthorizeRequest, data map
 	return nil
 }
 
-func (s *Server) tokenError(w http.ResponseWriter, err error) error {
-	data, statusCode, header := s.GetErrorData(err)
+func (s *Server) tokenError(w http.ResponseWriter, err error, r *http.Request) error {
+	data, statusCode, header := s.GetErrorData(err, r)
 	return s.token(w, data, header, statusCode)
 }
 
@@ -254,13 +254,13 @@ func (s *Server) GetAuthorizeToken(ctx context.Context, req *AuthorizeRequest) (
 }
 
 // GetAuthorizeData get authorization response data
-func (s *Server) GetAuthorizeData(rt oauth2.ResponseType, ti oauth2.TokenInfo) map[string]interface{} {
+func (s *Server) GetAuthorizeData(rt oauth2.ResponseType, ti oauth2.TokenInfo, r *http.Request) map[string]interface{} {
 	if rt == oauth2.Code {
 		return map[string]interface{}{
 			"code": ti.GetCode(),
 		}
 	}
-	return s.GetTokenData(ti)
+	return s.GetTokenData(ti, r)
 }
 
 // HandleAuthorizeRequest the authorization request handling
@@ -314,7 +314,7 @@ func (s *Server) HandleAuthorizeRequest(w http.ResponseWriter, r *http.Request) 
 		req.RedirectURI = client.GetDomain()
 	}
 
-	return s.redirect(w, req, s.GetAuthorizeData(req.ResponseType, ti))
+	return s.redirect(w, req, s.GetAuthorizeData(req.ResponseType, ti, r))
 }
 
 // ValidationTokenRequest the token request validation
@@ -477,7 +477,7 @@ func (s *Server) GetAccessToken(ctx context.Context, gt oauth2.GrantType, tgr *o
 }
 
 // GetTokenData token data
-func (s *Server) GetTokenData(ti oauth2.TokenInfo) map[string]interface{} {
+func (s *Server) GetTokenData(ti oauth2.TokenInfo, r *http.Request) map[string]interface{} {
 	data := map[string]interface{}{
 		"access_token": ti.GetAccess(),
 		"token_type":   s.Config.TokenType,
@@ -493,7 +493,7 @@ func (s *Server) GetTokenData(ti oauth2.TokenInfo) map[string]interface{} {
 	}
 
 	if fn := s.ExtensionFieldsHandler; fn != nil {
-		ext := fn(ti)
+		ext := fn(ti, r)
 		for k, v := range ext {
 			if _, ok := data[k]; ok {
 				continue
@@ -510,19 +510,19 @@ func (s *Server) HandleTokenRequest(w http.ResponseWriter, r *http.Request) erro
 
 	gt, tgr, err := s.ValidationTokenRequest(r)
 	if err != nil {
-		return s.tokenError(w, err)
+		return s.tokenError(w, err, r)
 	}
 
 	ti, err := s.GetAccessToken(ctx, gt, tgr)
 	if err != nil {
-		return s.tokenError(w, err)
+		return s.tokenError(w, err, r)
 	}
 
-	return s.token(w, s.GetTokenData(ti), nil)
+	return s.token(w, s.GetTokenData(ti, r), nil)
 }
 
 // GetErrorData get error response data
-func (s *Server) GetErrorData(err error) (map[string]interface{}, int, http.Header) {
+func (s *Server) GetErrorData(err error, r *http.Request) (map[string]interface{}, int, http.Header) {
 	var re errors.Response
 	if v, ok := errors.Descriptions[err]; ok {
 		re.Error = err
@@ -530,7 +530,7 @@ func (s *Server) GetErrorData(err error) (map[string]interface{}, int, http.Head
 		re.StatusCode = errors.StatusCodes[err]
 	} else {
 		if fn := s.InternalErrorHandler; fn != nil {
-			if v := fn(err); v != nil {
+			if v := fn(err, r); v != nil {
 				re = *v
 			}
 		}
@@ -543,7 +543,7 @@ func (s *Server) GetErrorData(err error) (map[string]interface{}, int, http.Head
 	}
 
 	if fn := s.ResponseErrorHandler; fn != nil {
-		fn(&re)
+		fn(&re, r)
 	}
 
 	data := make(map[string]interface{})

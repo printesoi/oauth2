@@ -72,12 +72,12 @@ func main() {
 
 	srv.SetUserAuthorizationHandler(userAuthorizeHandler)
 
-	srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
+	srv.SetInternalErrorHandler(func(err error, r *http.Request) (re *errors.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
 	})
 
-	srv.SetResponseErrorHandler(func(re *errors.Response) {
+	srv.SetResponseErrorHandler(func(re *errors.Response, r *http.Request) {
 		log.Println("Response Error:", re.Error.Error())
 	})
 

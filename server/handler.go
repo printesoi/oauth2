@@ -35,10 +35,10 @@ type (
 	RefreshingValidationHandler func(ti oauth2.TokenInfo) (allowed bool, err error)
 
 	// ResponseErrorHandler response error handing
-	ResponseErrorHandler func(re *errors.Response)
+	ResponseErrorHandler func(re *errors.Response, r *http.Request)
 
 	// InternalErrorHandler internal error handing
-	InternalErrorHandler func(err error) (re *errors.Response)
+	InternalErrorHandler func(err error, r *http.Request) (re *errors.Response)
 
 	// PreRedirectErrorHandler is used to override "redirect-on-error" behavior
 	PreRedirectErrorHandler func(w http.ResponseWriter, req *AuthorizeRequest, err error) error
@@ -50,7 +50,7 @@ type (
 	AccessTokenExpHandler func(w http.ResponseWriter, r *http.Request) (exp time.Duration, err error)
 
 	// ExtensionFieldsHandler in response to the access token with the extension of the field
-	ExtensionFieldsHandler func(ti oauth2.TokenInfo) (fieldsValue map[string]interface{})
+	ExtensionFieldsHandler func(ti oauth2.TokenInfo, r *http.Request) (fieldsValue map[string]interface{})
 
 	// ResponseTokenHandler response token handing
 	ResponseTokenHandler func(w http.ResponseWriter, data map[string]interface{}, header http.Header, statusCode ...int) error

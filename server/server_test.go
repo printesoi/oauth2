@@ -296,18 +296,18 @@ func TestClientCredentials(t *testing.T) {
 	srv = server.NewDefaultServer(manager)
 	srv.SetClientInfoHandler(server.ClientFormHandler)
 
-	srv.SetInternalErrorHandler(func(err error) (re *errors.Response) {
+	srv.SetInternalErrorHandler(func(err error, r *http.Request) (re *errors.Response) {
 		t.Log("OAuth 2.0 Error:", err.Error())
 		return
 	})
 
-	srv.SetResponseErrorHandler(func(re *errors.Response) {
+	srv.SetResponseErrorHandler(func(re *errors.Response, r *http.Request) {
 		t.Log("Response Error:", re.Error)
 	})
 
 	srv.SetAllowedGrantType(oauth2.ClientCredentials)
 	srv.SetAllowGetAccessRequest(false)
-	srv.SetExtensionFieldsHandler(func(ti oauth2.TokenInfo) (fieldsValue map[string]interface{}) {
+	srv.SetExtensionFieldsHandler(func(ti oauth2.TokenInfo, r *http.Request) (fieldsValue map[string]interface{}) {
 		fieldsValue = map[string]interface{}{
 			"extension": "param",
 		}
