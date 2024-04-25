@@ -362,18 +362,9 @@ func (m *Manager) GenerateAccessToken(ctx context.Context, gt oauth2.GrantType, 
 	return ti, nil
 }
 
-// RefreshAccessToken refreshing an access token
-func (m *Manager) RefreshAccessToken(ctx context.Context, tgr *oauth2.TokenGenerateRequest) (oauth2.TokenInfo, error) {
-	ti, err := m.LoadRefreshToken(ctx, tgr.Refresh)
-	if err != nil {
-		return nil, err
-	}
-
-	cli, err := m.GetClient(ctx, ti.GetClientID())
-	if err != nil {
-		return nil, err
-	}
-
+// GenerateRefreshAccessToken generate a refresh token for a given token
+// request, token info and client.
+func (m *Manager) GenerateRefreshAccessToken(ctx context.Context, tgr *oauth2.TokenGenerateRequest, ti oauth2.TokenInfo, cli oauth2.ClientInfo) (oauth2.TokenInfo, error) {
 	oldAccess, oldRefresh := ti.GetAccess(), ti.GetRefresh()
 
 	td := &oauth2.GenerateBasic{
@@ -441,6 +432,21 @@ func (m *Manager) RefreshAccessToken(ctx context.Context, tgr *oauth2.TokenGener
 	}
 
 	return ti, nil
+}
+
+// RefreshAccessToken refreshing an access token
+func (m *Manager) RefreshAccessToken(ctx context.Context, tgr *oauth2.TokenGenerateRequest) (oauth2.TokenInfo, error) {
+	ti, err := m.LoadRefreshToken(ctx, tgr.Refresh)
+	if err != nil {
+		return nil, err
+	}
+
+	cli, err := m.GetClient(ctx, ti.GetClientID())
+	if err != nil {
+		return nil, err
+	}
+
+	return m.GenerateRefreshAccessToken(ctx, tgr, ti, cli)
 }
 
 // RemoveAccessToken use the access token to delete the token information
